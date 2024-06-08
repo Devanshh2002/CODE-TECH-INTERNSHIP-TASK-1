@@ -1,0 +1,228 @@
+python -m venv env
+source env/bin/activate  # On Windows, use `env\Scripts\activate`
+pip install django pillow django-rest-framework
+
+django-admin startproject marketplace
+cd marketplace
+django-admin startapp core
+
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+
+class User(AbstractUser):
+    is_seller = models.BooleanField(default=False)
+
+class Product(models.Model):
+    seller = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    description = models.TextField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    image = models.ImageField(upload_to='products/')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class Order(models.Model):
+    buyer = models.ForeignKey(User, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class Review(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    rating = models.PositiveIntegerField()
+    comment = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+from django.contrib import admin
+from .models import User, Product, Order, Review
+
+admin.site.register(User)
+admin.site.register(Product)
+admin.site.register(Order)
+admin.site.register(Review)
+
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
+from .models import Product, Review
+
+def product_list(request):
+    products = Product.objects.all()
+    return render(request, 'core/product_list.html', {'products': products})
+
+def product_detail(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+    reviews = Review.objects.filter(product=product)
+    return render(request, 'core/product_detail.html', {'product': product, 'reviews': reviews})
+
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('products/', views.product_list, name='product_list'),
+    path('products/<int:product_id>/', views.product_detail, name='product_detail'),
+]
+
+from django.contrib import admin
+from django.urls import path, include
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('core/', include('core.urls')),
+]
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Product List</title>
+</head>
+<body>
+    <h1>Products</h1>
+    <ul>
+        {% for product in products %}
+            <li>
+                <a href="{% url 'product_detail' product.id %}">{{ product.name }}</a>
+                - ${{ product.price }}
+            </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ product.name }}</title>
+</head>
+<body>
+    <h1>{{ product.name }}</h1>
+    <img src="{{ product.image.url }}" alt="{{ product.name }}">
+    <p>{{ product.description }}</p>
+    <p>${{ product.price }}</p>
+    <h2>Reviews</h2>
+    <ul>
+        {% for review in reviews %}
+            <li>{{ review.user.username }} - {{ review.rating }}/5</li>
+            <p>{{ review.comment }}</p>
+        {% endfor %}
+    </ul>
+</body>
+</html>
+
+from django.contrib.auth import views as auth_views
+
+urlpatterns = [
+    path('login/', auth_views.LoginView.as_view(), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('signup/', views.signup, name='signup'),
+]
+
+from django.contrib.auth.forms import UserCreationForm
+from django.shortcuts import redirect
+
+def signup(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('login')
+    else:
+        form = UserCreationForm()
+    return render(request, 'registration/signup.html', {'form': form})
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sign Up</title>
+</head>
+<body>
+    <h1>Sign Up</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Sign Up</button>
+    </form>
+</body>
+</html>
+
+from django.db.models import Q
+
+def search(request):
+    query = request.GET.get('q')
+    products = Product.objects.filter(
+        Q(name__icontains=query) |
+        Q(description__icontains=query)
+    )
+    return render(request, 'core/search_results.html', {'products': products})
+
+urlpatterns = [
+    path('search/', views.search, name='search'),
+]
+
+pip install djangorestframework
+
+INSTALLED_APPS = [
+    ...,
+    'rest_framework',
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+from rest_framework import serializers
+from .models import Product, Review
+
+class ProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = '__all__'
+
+class ReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Review
+        fields = '__all__'
+
+from rest_framework import viewsets
+from .models import Product, Review
+from .serializers import ProductSerializer, ReviewSerializer
+
+class ProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+
+class ReviewViewSet(viewsets.ModelViewSet):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+
+
+from rest_framework.routers import DefaultRouter
+from . import views
+
+router = DefaultRouter()
+router.register(r'products', views.ProductViewSet)
+router.register(r'reviews', views.ReviewViewSet)
+
+urlpatterns = [
+    ...,
+    path('api/', include(router.urls)),
+]
+
+from django.test import TestCase
+from .models import Product, User
+
+class ProductTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create(username='testuser', password='password')
+        Product.objects.create(name='Test Product', description='Test Description', price=9.99, seller=self.user)
+
+    def test_product_creation(self):
+        product = Product.objects.get(name='Test Product')
+        self.assertEqual(product.description, 'Test Description')
+        self.assertEqual(product.price, 9.99)
