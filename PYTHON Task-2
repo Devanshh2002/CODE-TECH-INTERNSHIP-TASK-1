@@ -1,0 +1,80 @@
+# Step 1: Define the Data Structure
+students = {}
+
+# Step 2: Input Student Grades
+def input_grades(student_name):
+    grades = {}
+    while True:
+        subject = input("Enter subject (or 'done' to finish): ")
+        if subject.lower() == 'done':
+            break
+        grade = float(input(f"Enter grade for {subject}: "))
+        grades[subject] = grade
+    students[student_name] = grades
+
+# Step 3: Calculate Average Grade
+def calculate_average(grades):
+    if not grades:
+        return 0
+    total = sum(grades.values())
+    return total / len(grades)
+
+# Step 4: Determine Letter Grade or GPA
+def determine_letter_grade(average):
+    if average >= 90:
+        return 'A'
+    elif average >= 80:
+        return 'B'
+    elif average >= 70:
+        return 'C'
+    elif average >= 60:
+        return 'D'
+    else:
+        return 'F'
+
+def calculate_gpa(average):
+    if average >= 90:
+        return 4.0
+    elif average >= 80:
+        return 3.0
+    elif average >= 70:
+        return 2.0
+    elif average >= 60:
+        return 1.0
+    else:
+        return 0.0
+
+# Step 5: Display Overall Grade
+def display_overall_grade(student_name):
+    if student_name not in students:
+        print(f"No grades found for student: {student_name}")
+        return
+    grades = students[student_name]
+    average = calculate_average(grades)
+    letter_grade = determine_letter_grade(average)
+    gpa = calculate_gpa(average)
+    
+    print(f"\nGrades for {student_name}:")
+    for subject, grade in grades.items():
+        print(f"{subject}: {grade}")
+    print(f"Average Grade: {average:.2f}")
+    print(f"Letter Grade: {letter_grade}")
+    print(f"GPA: {gpa:.2f}")
+
+# Main Program
+def main():
+    while True:
+        choice = input("\n1. Input Grades\n2. Display Grades\n3. Exit\nChoose an option: ")
+        if choice == '1':
+            student_name = input("Enter student name: ")
+            input_grades(student_name)
+        elif choice == '2':
+            student_name = input("Enter student name: ")
+            display_overall_grade(student_name)
+        elif choice == '3':
+            break
+        else:
+            print("Invalid option. Please try again.")
+
+if __name__ == "__main__":
+    main()
