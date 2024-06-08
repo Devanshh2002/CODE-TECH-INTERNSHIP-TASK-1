@@ -1,0 +1,98 @@
+class LibraryItem:
+    def __init__(self, item_id, title, author, category):
+        self.item_id = item_id
+        self.title = title
+        self.author = author
+        self.category = category
+        self.is_checked_out = False
+        self.due_date = None
+
+    def checkout(self, due_date):
+        self.is_checked_out = True
+        self.due_date = due_date
+
+    def return_item(self):
+        self.is_checked_out = False
+        self.due_date = None
+
+class Book(LibraryItem):
+    def __init__(self, item_id, title, author, category, isbn):
+        super().__init__(item_id, title, author, category)
+        self.isbn = isbn
+
+class Magazine(LibraryItem):
+    def __init__(self, item_id, title, author, category, issue):
+        super().__init__(item_id, title, author, category)
+        self.issue = issue
+
+class DVD(LibraryItem):
+    def __init__(self, item_id, title, author, category, region_code):
+        super().__init__(item_id, title, author, category)
+        self.region_code = region_code
+
+from datetime import datetime, timedelta
+
+class Library:
+    def __init__(self):
+        self.items = {}
+        self.fines = {}
+
+    def add_item(self, item):
+        self.items[item.item_id] = item
+
+    def checkout_item(self, item_id, days=14):
+        if item_id in self.items and not self.items[item_id].is_checked_out:
+            due_date = datetime.now() + timedelta(days=days)
+            self.items[item_id].checkout(due_date)
+            print(f"Item {item_id} checked out until {due_date}")
+        else:
+            print("Item not available for checkout")
+
+    def return_item(self, item_id):
+        if item_id in self.items and self.items[item_id].is_checked_out:
+            self.items[item_id].return_item()
+            print(f"Item {item_id} returned")
+            self.calculate_fine(item_id)
+        else:
+            print("Item not checked out")
+
+    def calculate_fine(self, item_id):
+        item = self.items[item_id]
+        if item.due_date and item.due_date < datetime.now():
+            overdue_days = (datetime.now() - item.due_date).days
+            fine = overdue_days * 1  # Assume $1 fine per day
+            self.fines[item_id] = fine
+            print(f"Item {item_id} is overdue. Fine: ${fine}")
+        else:
+            self.fines[item_id] = 0
+
+    def search_items(self, keyword, search_type='title'):
+        results = []
+        for item in self.items.values():
+            if keyword.lower() in getattr(item, search_type).lower():
+                results.append(item)
+        return results
+
+# Example usage
+library = Library()
+
+# Adding items
+book1 = Book(1, "1984", "George Orwell", "Fiction", "1234567890")
+magazine1 = Magazine(2, "National Geographic", "Various", "Science", "June 2024")
+dvd1 = DVD(3, "Inception", "Christopher Nolan", "Movie", "1")
+
+library.add_item(book1)
+library.add_item(magazine1)
+library.add_item(dvd1)
+
+# Checking out and returning items
+library.checkout_item(1)
+library.return_item(1)
+
+# Searching for items
+results = library.search_items("1984")
+for item in results:
+    print(item.title, item.author)
+
+# Checking fines
+library.calculate_fine(1)
