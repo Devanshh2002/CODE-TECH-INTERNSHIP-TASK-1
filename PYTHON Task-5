@@ -1,0 +1,144 @@
+pip install django
+
+django-admin startproject social_network
+cd social_network
+django-admin startapp users
+
+# users/models.py
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+
+class CustomUser(AbstractUser):
+    bio = models.TextField(blank=True)
+    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True)
+
+class FriendRequest(models.Model):
+    from_user = models.ForeignKey(CustomUser, related_name='sent_requests', on_delete=models.CASCADE)
+    to_user = models.ForeignKey(CustomUser, related_name='received_requests', on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+class Post(models.Model):
+    author = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    image = models.ImageField(upload_to='post_images/', blank=True, null=True)
+
+class Message(models.Model):
+    sender = models.ForeignKey(CustomUser, related_name='sent_messages', on_delete=models.CASCADE)
+    recipient = models.ForeignKey(CustomUser, related_name='received_messages', on_delete=models.CASCADE)
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+# users/views.py
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from .models import CustomUser, Post, FriendRequest, Message
+
+@login_required
+def profile_view(request, username):
+    user = CustomUser.objects.get(username=username)
+    posts = Post.objects.filter(author=user)
+    return render(request, 'users/profile.html', {'user': user, 'posts': posts})
+
+@login_required
+def send_friend_request(request, user_id):
+    to_user = CustomUser.objects.get(id=user_id)
+    FriendRequest.objects.create(from_user=request.user, to_user=to_user)
+    return redirect('profile', username=to_user.username)
+
+@login_required
+def send_message(request, user_id):
+    if request.method == "POST":
+        content = request.POST['content']
+        recipient = CustomUser.objects.get(id=user_id)
+        Message.objects.create(sender=request.user, recipient=recipient, content=content)
+        return redirect('profile', username=recipient.username)
+    else:
+        return render(request, 'users/send_message.html', {'recipient': CustomUser.objects.get(id=user_id)})
+
+# social_network/urls.py
+from django.contrib import admin
+from django.urls import path, include
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('users/', include('users.urls')),
+]
+
+# users/urls.py
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('profile/<str:username>/', views.profile_view, name='profile'),
+    path('send_friend_request/<int:user_id>/', views.send_friend_request, name='send_friend_request'),
+    path('send_message/<int:user_id>/', views.send_message, name='send_message'),
+]
+
+
+npx create-react-app social-frontend
+cd social-frontend
+npm start
+
+
+# settings.py
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'social_network_db',
+        'USER': 'yourusername',
+        'PASSWORD': 'yourpassword',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
+}
+
+pip install channels
+
+INSTALLED_APPS = [
+    'channels',
+    # other apps
+]
+
+ASGI_APPLICATION = 'social_network.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        },
+    },
+}
+
+# users/models.py
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+
+class CustomUser(AbstractUser):
+    bio = models.TextField(blank=True)
+    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True)
+
+# users/views.py
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from .models import CustomUser
+
+@login_required
+def profile_view(request, username):
+    user = CustomUser.objects.get(username=username)
+    return render(request, 'users/profile.html', {'user': user})
+
+<!-- users/templates/users/profile.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ user.username }}'s Profile</title>
+</head>
+<body>
+    <h1>{{ user.username }}</h1>
+    <p>{{ user.bio }}</p>
+    <img src="{{ user.profile_picture.url }}" alt="Profile Picture">
+</body>
+</html>
